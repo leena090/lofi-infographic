@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로파이 채널 성공 인포그래픽 대시보드</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Lofi Chill (Warm Neutrals & Soft Accents) -->
+    <!-- Application Structure Plan: 이 SPA는 리포트의 핵심 전략을 시각적으로 명확하게 전달하기 위해 4개의 핵심 섹션으로 구성된 대시보드 레이아웃을 채택합니다. 1) '핵심 요약 및 채널 규모' 섹션은 주요 통계 및 채널별 구독자 비교 차트를 포함합니다. 2) '수익 모델 분석' 섹션은 다양한 수익원을 구조화된 텍스트와 요약된 차트(파이/도넛)로 보여줍니다. 3) '성공 요인 & 콘텐츠 전략' 섹션은 리포트에서 강조된 7가지 성공 요인을 인터랙티브 카드 형태로 제공하여 사용자가 쉽게 탐색할 수 있게 합니다. 4) '신규 채널 니치 전략' 섹션은 리포트의 핵심인 3가지 최우선 니치와 성장 예상치를 시각화하고, 추천 채널명을 선택할 수 있는 기능을 제공합니다. 이 구조는 사용자가 정보를 탐색하고 최종 전략을 결정하는 흐름을 지원합니다. -->
+    <!-- Visualization & Content Choices: 1. 채널별 구독자 수 비교 -> Goal: 시장 지배력 시각화 -> Horizontal Bar Chart -> 채널 간 규모 비교 및 툴팁 제공 -> Chart.js. 2. 수익 모델 구성 비율 -> Goal: 수익 다각화 중요성 강조 -> Doughnut Chart -> 수익원별 비중 시각화 -> Chart.js. 3. 니치별 성장 예상치 -> Goal: 니치 전략의 잠재력 제시 -> Stacked/Clustered Bar Chart -> 6개월/1년/2년 예상 구독자 수를 비교 시각화 -> Chart.js. 4. 성공 요인 카드 -> Goal: 핵심 전략의 구체화 -> 인터랙티브 카드 (클릭 시 상세 설명 토글) -> 리포트의 7가지 성공 요인을 명확하게 전달 -> Vanilla JS. 5. 추천 채널명 선택 -> Goal: 실행 가능성 부여 -> 버튼 클릭 이벤트로 추천 채널명 선택 및 표시 -> Vanilla JS. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #F8F4F0; /* Soft Warm White */
+            color: #4A4A4A;
+            line-height: 1.6;
+        }
+        .container-wrapper {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .card {
+            background-color: #FFFFFF;
+            border: 1px solid #E5E5E5;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease-in-out;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px; 
+            max-height: 400px;
+        }
+        .nav-link {
+            transition: color 0.2s, border-bottom 0.2s;
+        }
+        .nav-link:hover {
+            color: #8C6D5B;
+        }
+        .accent-color {
+            color: #A88B79; /* Soft Brown Accent */
+        }
+        .bg-accent {
+            background-color: #A88B79;
+        }
+        .btn-primary {
+            background-color: #6D5D53;
+            color: white;
+            transition: background-color 0.2s;
+        }
+        .btn-primary:hover {
+            background-color: #8C7462;
+        }
+        .tooltip-text {
+            display: none;
+        }
+        .active-card .tooltip-text {
+            display: block;
+        }
+        .tooltip-icon {
+            font-size: 1.5rem;
+            color: #A88B79;
+        }
+
+        /* Responsive height adjustments for charts */
+        @media (max-width: 768px) {
+            .chart-container {
+                height: 300px;
+                max-height: 350px;
+            }
+        }
+    </style>
+</head>
+<body class="overflow-x-hidden">
+
+    <div class="container-wrapper">
+        <header class="text-center mb-12 py-6 bg-white card">
+            <h1 class="text-4xl md:text-5xl font-bold text-[#6D5D53]">로파이/앰비언트 채널 성공 전략 대시보드</h1>
+            <p class="text-lg text-gray-500 mt-2">분석 리포트 기반: 시장 현황, 핵심 성공 요인, 신규 채널 니치 전략</p>
+        </header>
+
+        <!-- Navigation Menu (Internal Scroll) -->
+        <nav class="sticky top-0 z-10 bg-white/90 backdrop-blur-sm p-4 rounded-xl shadow-lg mb-8">
+            <ul class="flex justify-center space-x-6 md:space-x-12 text-lg font-semibold">
+                <li><a href="#stats" class="nav-link text-gray-700 hover:text-accent-color">규모 분석</a></li>
+                <li><a href="#revenue" class="nav-link text-gray-700 hover:text-accent-color">수익 모델</a></li>
+                <li><a href="#success" class="nav-link text-gray-700 hover:text-accent-color">성공 요인</a></li>
+                <li><a href="#niche" class="nav-link text-gray-700 hover:text-accent-color">니치 전략</a></li>
+            </ul>
+        </nav>
+
+        <!-- SECTION 1: 핵심 요약 및 채널 규모 -->
+        <section id="stats" class="mb-16">
+            <h2 class="text-3xl font-bold mb-6 pb-2 border-b-2 border-[#A88B79]">1. 시장 규모 분석: 누가 시장을 지배하는가?</h2>
+            <p class="text-gray-600 mb-8">로파이/앰비언트 시장은 **극도로 포화**되어 있으며, 상위 채널들은 강력한 브랜드와 장기적인 전략을 통해 시장을 독점하고 있습니다. 신규 채널은 **전통적 접근을 피해야** 합니다.</p>
+
+            <div class="grid lg:grid-cols-3 gap-6 mb-8">
+                <div class="card p-6 bg-white">
+                    <p class="text-xl font-semibold text-[#6D5D53]">최대 구독자</p>
+                    <p class="text-5xl font-extrabold accent-color mt-1">1,520만+</p>
+                    <p class="text-gray-500">Lofi Girl (캐릭터 브랜딩의 정석)</p>
+                </div>
+                <div class="card p-6 bg-white">
+                    <p class="text-xl font-semibold text-[#6D5D53]">최고 연령</p>
+                    <p class="text-5xl font-extrabold accent-color mt-1">14년차</p>
+                    <p class="text-gray-500">Soothing Relaxation, MeditationRelaxClub (2011년 시작)</p>
+                </div>
+                <div class="card p-6 bg-white">
+                    <p class="text-xl font-semibold text-[#6D5D53]">신규 채널 성공 확률</p>
+                    <p class="text-5xl font-extrabold text-red-500 mt-1">5-10%</p>
+                    <p class="text-gray-500">일반 키워드(Lofi, Sleep) 기준. 니치 전략 사용 시 60-70%까지 상승 가능.</p>
+                </div>
+            </div>
+
+            <div class="card p-6">
+                <h3 class="text-xl font-bold mb-4 text-[#6D5D53]">주요 성공 채널 구독자 수 비교 (단위: 만 명)</h3>
+                <p class="text-sm text-gray-500 mb-4">시장의 규모의 경제를 직관적으로 보여줍니다. Lofi Girl의 압도적 지배력을 확인하세요.</p>
+                <div class="chart-container">
+                    <canvas id="subsChart"></canvas>
+                </div>
+            </div>
+        </section>
+        
+        <!-- SECTION 2: 수익 모델 분석 -->
+        <section id="revenue" class="mb-16">
+            <h2 class="text-3xl font-bold mb-6 pb-2 border-b-2 border-[#A88B79]">2. 수익 모델 다각화: 어떻게 돈을 버는가?</h2>
+            <p class="text-gray-600 mb-8">성공적인 채널들은 광고 수익에만 의존하지 않고, **스트리밍, 멤버십, 굿즈, 라이선싱** 등 다각화된 수익 모델을 구축하여 안정성을 확보합니다.</p>
+            
+            <div class="grid lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 card p-6">
+                    <h3 class="text-xl font-bold mb-4 text-[#6D5D53]">주요 수익원 구성 비율 및 특징</h3>
+                    <div class="grid md:grid-cols-2 gap-6">
+                         <div class="chart-container h-64 max-h-64">
+                            <canvas id="revenueChart"></canvas>
+                        </div>
+                        <ul class="space-y-4 text-sm md:text-base">
+                            <li><span class="font-bold text-[#A88B79]">YouTube 광고 (AdSense):</span> 주 수입원. 긴 영상(8-12시간)으로 한 재생당 여러 광고 노출 기회를 극대화하여 낮은 CPM(\$4-\$6)을 보완.</li>
+                            <li><span class="font-bold text-[#A88B79]">스트리밍 플랫폼:</span> Spotify, Apple Music 등 진출. 반복 재생률이 매우 높아 안정적 수익 발생. 오리지널 작곡 채널에 특히 유리.</li>
+                            <li><span class="font-bold text-[#A88B79]">채널 멤버십/후원:</span> 구독자의 0.1-0.5%가 가입하여 월 \$5,000-\$25,000의 안정적 추가 수익 창출 가능.</li>
+                            <li><span class="font-bold text-[#A88B79]">굿즈/스폰서십:</span> Lofi Girl처럼 강력한 브랜딩이 필수. 유명 브랜드 콜라보레이션(게임사 선호)은 고수익 창출 기회.</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="card p-6 bg-gray-50">
+                    <h3 class="text-xl font-bold mb-4 text-[#6D5D53]">대형 채널 월 수익 (추정)</h3>
+                    <ul class="space-y-3">
+                        <li><span class="font-bold text-[#8C7462]">Lofi Girl:</span> 810만원 ~ 1.3억 원</li>
+                        <li><span class="font-bold text-[#8C7462]">Soothing Relaxation:</span> 780만원 ~ 1.2억 원</li>
+                        <li><span class="font-bold text-[#8C7462]">Yellow Brick Cinema:</span> 1,300만원 ~ 2억 원</li>
+                    </ul>
+                    <p class="text-xs text-gray-500 mt-4">수익은 광고 노출 빈도, CPM, 플랫폼별 비율에 따라 크게 달라질 수 있습니다. 다각화 전략이 핵심입니다.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: 성공 요인 & 콘텐츠 전략 -->
+        <section id="success" class="mb-16">
+            <h2 class="text-3xl font-bold mb-6 pb-2 border-b-2 border-[#A88B79]">3. 7가지 핵심 성공 요인: 무엇을 따라 해야 하는가?</h2>
+            <p class="text-gray-600 mb-8">모든 성공 채널이 공통적으로 준수하는 7가지 운영 원칙입니다. 카드를 클릭하여 상세 내용을 확인하세요.</p>
+
+            <div class="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4" id="success-factors-container">
+                <!-- Cards will be populated here -->
+            </div>
+        </section>
+
+        <!-- SECTION 4: 신규 채널 니치 전략 및 로드맵 -->
+        <section id="niche" class="mb-16">
+            <h2 class="text-3xl font-bold mb-6 pb-2 border-b-2 border-[#A88B79]">4. 신규 채널 전략: 니치와 성장 로드맵</h2>
+            <p class="text-gray-600 mb-8">전통적인 접근 대신, 경쟁이 적고 타겟 오디언스가 명확한 **니치 전략**을 선택하는 것이 유일한 돌파구입니다. 최우선 추천 니치 3가지와 그 성장 잠재력을 비교하세요.</p>
+            
+            <div class="grid lg:grid-cols-3 gap-8">
+                <div class="lg:col-span-2 card p-6">
+                    <h3 class="text-xl font-bold mb-4 text-[#6D5D53]">최우선 추천 니치 3가지 성장 잠재력 비교 (구독자 만 명)</h3>
+                    <p class="text-sm text-gray-500 mb-4">니치 전략 기반, 주 2-3회 업로드 기준 예상치입니다.</p>
+                    <div class="chart-container h-80 max-h-80">
+                        <canvas id="nicheChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card p-6 bg-gray-50">
+                    <h3 class="text-xl font-bold mb-4 text-[#6D5D53]">니치별 최우선 추천 채널명</h3>
+                    <p class="text-sm text-gray-600 mb-4">독창성, SEO, 확장성을 모두 고려한 최적의 채널명 후보입니다. 선택 후 실행 로드맵을 확인하세요.</p>
+                    <div id="channel-name-select" class="space-y-3">
+                        <button data-niche="K-Traditional Lofi" data-name="Seoul Lofi" class="w-full btn-primary py-2 px-4 rounded-lg font-semibold text-sm">
+                            K-Lofi: Seoul Lofi
+                        </button>
+                        <button data-niche="Gaming Focus Music" data-name="Pixel Pulse" class="w-full btn-primary py-2 px-4 rounded-lg font-semibold text-sm">
+                            Gaming: Pixel Pulse
+                        </button>
+                        <button data-niche="ADHD Focus Music" data-name="Mind Unlocked" class="w-full btn-primary py-2 px-4 rounded-lg font-semibold text-sm">
+                            ADHD: Mind Unlocked
+                        </button>
+                    </div>
+                    
+                    <div id="selected-name-info" class="mt-6 p-4 border-l-4 border-accent-color bg-white rounded-md hidden">
+                        <p class="text-base font-bold text-[#6D5D53]">선택된 채널명: <span id="chosen-name" class="accent-color"></span></p>
+                        <p class="text-xs text-gray-500 mt-1">선택된 니치: <span id="chosen-niche"></span></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-12 card p-6 bg-white">
+                <h3 class="text-2xl font-bold mb-4 text-[#6D5D53]">실행 로드맵 요약</h3>
+                <div class="grid md:grid-cols-4 gap-6 text-center">
+                    <div class="p-4 border rounded-lg bg-gray-50">
+                        <p class="text-2xl font-bold accent-color">Phase 1</p>
+                        <p class="font-semibold mt-1">준비 (1-2주)</p>
+                        <p class="text-sm text-gray-600">니치 선정, 경쟁 분석, 브랜드(로고/채널명) 구축</p>
+                    </div>
+                    <div class="p-4 border rounded-lg bg-gray-50">
+                        <p class="text-2xl font-bold accent-color">Phase 2</p>
+                        <p class="font-semibold mt-1">론칭 (1개월)</p>
+                        <p class="text-sm text-gray-600">초기 3-5개 영상 업로드, 철저한 SEO, 커뮤니티 소통 시작</p>
+                    </div>
+                    <div class="p-4 border rounded-lg bg-gray-50">
+                        <p class="text-2xl font-bold accent-color">Phase 3</p>
+                        <p class="font-semibold mt-1">성장 (3-6개월)</p>
+                        <p class="text-sm text-gray-600">주 2-3회 일관된 업로드, 데이터(Analytics) 기반 개선</p>
+                    </div>
+                    <div class="p-4 border rounded-lg bg-gray-50">
+                        <p class="text-2xl font-bold accent-color">Phase 4</p>
+                        <p class="font-semibold mt-1">수익화 (6개월-1년)</p>
+                        <p class="text-sm text-gray-600">수익화 신청(1K/4K), 스트리밍, 멤버십, 라이선싱 등 다각화</p>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <footer class="text-center mt-12 pt-8 border-t border-gray-300 text-gray-500 text-sm">
+            <p>본 인포그래픽은 '로파이/앰비언트/수면 음악 채널 성공 전략 분석 리포트'의 데이터를 기반으로 제작되었습니다. 2025.10.12</p>
+        </footer>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    
+    // 1. Data Setup (Report Data)
+    const chartData = {
+        channels: [
+            { name: 'Lofi Girl', subs: 1520, est: 2015, color: '#A88B79' },
+            { name: 'Soothing Relaxation', subs: 1190, est: 2011, color: '#8C7462' },
+            { name: 'Yellow Brick Cinema', subs: 647, est: 2013, color: '#6D5D53' },
+            { name: 'MeditationRelaxClub', subs: 600, est: 2011, color: '#C3B0A2' },
+            { name: 'Nu Meditation Music', subs: 300, est: 2012, color: '#D1C7BD' },
+            { name: 'Quiet Quest', subs: 100, est: 2020, color: '#E5E5E5' }
+        ],
+        nicheGrowth: [
+            { niche: 'K-Traditional Lofi', '6개월': 1.5, '1년': 7.5, '2년': 12.5, color: '#A88B79' },
+            { niche: 'Gaming Focus Music', '6개월': 1.0, '1년': 5.0, '2년': 10.0, color: '#8C7462' },
+            { niche: 'ADHD Focus Music', '6개월': 0.75, '1년': 3.5, '2년': 7.5, color: '#6D5D53' },
+        ],
+        successFactors: [
+            { icon: '✨', title: '일관성과 정체성', desc: '명확한 브랜드(로고, 색상)를 구축하고 일관된 업로드 스케줄(주 2-3회)을 유지하여 시청자에게 예측 가능성을 제공합니다.' },
+            { icon: '🎧', title: '고품질 콘텐츠', desc: '오디오 품질(믹싱, 마스터링)은 타협할 수 없습니다. 비주얼도 최소 1080p, 4K 고해상도로 제작해야 합니다.' },
+            { icon: '🔍', title: 'SEO 최적화', desc: '키워드를 앞세운 제목, 상세한 설명, 적절한 태그, 플레이리스트 구성을 통해 검색 및 추천 노출을 극대화합니다.' },
+            { icon: '⏳', title: '긴 영상 길이 (3-12시간)', desc: '장시간 시청(수면, 공부)에 최적화하여 시청 시간을 압도적으로 늘리고, 한 영상에 여러 광고를 삽입하여 수익을 극대화합니다.' },
+            { icon: '📡', title: '24/7 라이브 스트리밍', desc: '지속적인 시청자 유입, 커뮤니티 형성(채팅), 알고리즘의 "Live now" 섹션 노출에 매우 유리한 전략입니다.' },
+            { icon: '🔗', title: '다양한 플랫폼 진출', desc: 'YouTube 외 Spotify, Apple Music, TikTok 등 모든 주요 플랫폼으로 확장하여 브랜드 인지도를 확대하고 수익원을 다각화합니다.' },
+            { icon: '💬', title: '커뮤니티 구축', desc: '댓글 답변, Discord 운영, 멤버십 등을 통해 시청자들과 소통하고 소속감을 부여하여 충성도와 채널 홍보 효과를 높입니다.' }
+        ],
+    };
+
+    // 2. Chart Drawing Functions
+    function createSubsChart() {
+        const sortedChannels = [...chartData.channels].sort((a, b) => a.subs - b.subs);
+        const ctx = document.getElementById('subsChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: sortedChannels.map(c => c.name),
+                datasets: [{
+                    label: '구독자 수 (만 명)',
+                    data: sortedChannels.map(c => c.subs),
+                    backgroundColor: sortedChannels.map(c => c.color),
+                    borderColor: sortedChannels.map(c => c.color.replace('0.7', '1')),
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y', // Horizontal bar chart
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: '구독자 수 (만 명)'
+                        }
+                    },
+                    y: {
+                         // Truncate long labels if needed, but here channel names are short
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                         callbacks: {
+                            label: function(context) {
+                                return context.label + ': ' + context.parsed.x.toLocaleString() + '만 명';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function createRevenueChart() {
+        const ctx = document.getElementById('revenueChart').getContext('2d');
+        // 추정치 기반의 수익 모델 비중
+        const revenueLabels = ['YouTube 광고', '스트리밍 플랫폼', '멤버십/굿즈', '라이선싱/스폰서십'];
+        const revenueData = [50, 25, 15, 10]; // 예시 비중
+
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: revenueLabels,
+                datasets: [{
+                    data: revenueData,
+                    backgroundColor: ['#A88B79', '#8C7462', '#C3B0A2', '#6D5D53'],
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            font: {
+                                size: 14
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function createNicheChart() {
+        const ctx = document.getElementById('nicheChart').getContext('2d');
+        
+        // 데이터 준비
+        const labels = chartData.nicheGrowth.map(d => d.niche);
+        const data6M = chartData.nicheGrowth.map(d => d['6개월']);
+        const data1Y = chartData.nicheGrowth.map(d => d['1년']);
+        const data2Y = chartData.nicheGrowth.map(d => d['2년']);
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: '6개월 후 (만 명)',
+                        data: data6M,
+                        backgroundColor: '#C3B0A2',
+                        stack: 'stack1'
+                    },
+                    {
+                        label: '1년 후 (만 명)',
+                        data: data1Y.map((v, i) => v - data6M[i]), // 6개월~1년 사이 증가분
+                        backgroundColor: '#A88B79',
+                        stack: 'stack1'
+                    },
+                    {
+                        label: '2년 후 (만 명)',
+                        data: data2Y.map((v, i) => v - data1Y[i]), // 1년~2년 사이 증가분
+                        backgroundColor: '#6D5D53',
+                        stack: 'stack1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        stacked: true,
+                    },
+                    y: {
+                        stacked: true,
+                        title: {
+                            display: true,
+                            text: '예상 누적 구독자 수 (만 명)'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            // Total subscription amount
+                            footer: (tooltipItems) => {
+                                const total = tooltipItems.reduce((sum, item) => sum + item.parsed.y, 0);
+                                return '누적 합계: ' + total.toFixed(2) + '만 명';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // 3. Dynamic Content Rendering (Success Factors)
+    const factorsContainer = document.getElementById('success-factors-container');
+    chartData.successFactors.forEach((factor, index) => {
+        const factorCard = document.createElement('div');
+        factorCard.className = 'factor-card card p-5 cursor-pointer flex flex-col items-center text-center';
+        factorCard.dataset.index = index;
+        
+        factorCard.innerHTML = `
+            <span class="tooltip-icon mb-3">${factor.icon}</span>
+            <h4 class="text-lg font-bold text-[#6D5D53] mb-2">${factor.title}</h4>
+            <p class="tooltip-text text-sm text-gray-600 mt-2">${factor.desc}</p>
+        `;
+        
+        factorCard.addEventListener('click', () => {
+            // Toggle active state
+            factorCard.classList.toggle('active-card');
+        });
+        
+        factorsContainer.appendChild(factorCard);
+    });
+
+    // 4. Interaction Logic (Channel Name Selection)
+    const nameButtons = document.querySelectorAll('#channel-name-select button');
+    const selectedInfoDiv = document.getElementById('selected-name-info');
+    const chosenNameSpan = document.getElementById('chosen-name');
+    const chosenNicheSpan = document.getElementById('chosen-niche');
+
+    nameButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            // Reset state
+            nameButtons.forEach(btn => btn.classList.remove('bg-accent', 'btn-primary'));
+            
+            // Set active state
+            button.classList.add('bg-accent');
+            
+            // Update info panel
+            const name = button.dataset.name;
+            const niche = button.dataset.niche;
+            
+            chosenNameSpan.textContent = name;
+            chosenNicheSpan.textContent = niche;
+            selectedInfoDiv.classList.remove('hidden');
+        });
+    });
+
+    // 5. Initialize Charts
+    createSubsChart();
+    createRevenueChart();
+    createNicheChart();
+});
+</script>
+
+</body>
+</html>
